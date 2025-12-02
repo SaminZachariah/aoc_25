@@ -41,12 +41,12 @@ solve2 input = zeroCount
 
     step (pos, cnt) delta =
       let newPos = (pos + delta) `mod` 100
-          crossings =
-            if delta >= 0
-              then (pos + delta) `div` 100 - pos `div` 100
-              else (pos - 1) `div` 100 - (pos + delta - 1) `div` 100
-          newCnt = cnt + crossings
-       in (newPos, newCnt)
+          crossings = abs ((pos + delta) `div` 100)
+          correction
+            | (pos + delta) <= 0 && ((pos + delta) `mod` 100) == 0 = 1
+            | (pos + delta) < 0 && pos == 0 = -1
+            | otherwise = 0
+       in (newPos, cnt + crossings + correction)
 
 -- | Parse rotation strings: L{n} -> -n, R{n} -> n
 parseRotation :: String -> Int
