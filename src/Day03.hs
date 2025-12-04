@@ -16,7 +16,7 @@ main = do
   rawInput <- readInput inputFile
 
   let banks = parseLines (map digitToInt) rawInput
-  putStrLn $ "Banks: " ++ show banks
+  -- putStrLn $ "Banks: " ++ show banks
 
   -- Part 1
   let part1 = solve1 banks
@@ -26,43 +26,40 @@ main = do
   let part2 = solve2 banks
   putStrLn $ "Part 2: " ++ show part2
 
-type Bank = [Int]
+type Bank = [Int] -- list of digits from puzzle input
+
+intFromDigits :: [Int] -> Int
+-- helper to convert [1,2,3] => ["1", "2", "3"] => "123" => 123
+intFromDigits = read . concatMap show
 
 solve1 :: [Bank] -> Int
-solve1 = sum . map bankJoltageP1
-
-bankJoltageP1 :: Bank -> Int
-bankJoltageP1 bank =
-  case reverse bank of -- we want to traverse right-to-left
-    (ones : tens : rest) ->
-      -- one is before ten in reversed list
-      pairJoltage $ foldl newBestPair (tens, ones) rest
-      where
-        pairJoltage (t, o) = t * 10 + o
-
-        newBestPair (t, o) e -- Update curr-best with candidate element
-          | e < t = (t, o) -- drop e (it's strictly worse)
-          | t < o = (e, o) -- use e, drop tens (tens worse than ones)
-          | otherwise = (e, t) -- use e, use tens
-    _ -> error "Bank must have at least 2 elements"
+-- point-free style: s = (f . g), means s(x) == (f . g)(x) == f(g(x))
+-- solve = (sum . map (bankJoltage N))
+-- means solve(banks) == sum(map(bankJoltage(N), banks))
+-- and map(f, [x1,x2,x3]) == [f(x1), f(x2), f(x3)]
+solve1 = sum . map (bankJoltage 2)
 
 solve2 :: [Bank] -> Int
-solve2 = sum . map bankJoltageP2
+solve2 = sum . map (bankJoltage 12)
 
-bankJoltageP2 :: Bank -> Int
-bankJoltageP2 bank =
-  intFromDigits $ foldl updateCell initialCell rest
+bankJoltage :: Int -> Bank -> Int
+-- Divide the input into [x0, x1 ... | x_n-c,...,x_n] aka [rest | cell]
+-- Walk through 'rest' from right-to-left one element at a time.
+-- At each step, see if we can improve our current cell by using the new element
+bankJoltage cellSize bank =
+  intFromDigits $ foldr optimizeCell cell rest
   where
-    initialCell = reverse $ take 12 $ reverse bank
-    rest = drop 12 $ reverse bank
+    -- Divide the input into [x0, x1, ... | x_n-c, x_n-c+1,...x_n]
+    (rest, cell) = splitAt (length bank - cellSize) bank
 
--- recursively update curr-best choices with a candidate element
-updateCell :: [Int] -> Int -> [Int]
-updateCell [] _ = [] -- base case, nothing left to compare
-updateCell (x : xs) e
-  | e < x = x : xs -- drop e (it's worse)
-  | otherwise = e : updateCell xs x -- use e, recurse to use/lose x on xs
-
--- helper to convert [1,2,3] => ["1", "2", "3"] => "123" => 123
-intFromDigits :: [Int] -> Int
-intFromDigits = read . concatMap show
+optimizeCell :: Int -> [Int] -> [Int]
+-- Recursively optimize an existing cell by comparing a canditate digit
+-- against the most-significant-digit of the cell.
+-- e.g: candidate 3, cell [2,1].
+-- Use 3 as msd: recurse with candidate 2, cell [1]
+-- Use 2 as next msd: recurse with candidate 1, cell []
+-- Base case hit: return to get 3:2:[] == [3,2]
+optimizeCell _ [] = [] -- base-case empty list, nothing left to compare/swap
+optimizeCell candidate (msd : rest)
+  | candidate < msd = msd : rest -- drop canditate (it's strictly worse)
+  | otherwise = candidate : optimizeCell msd rest -- use candidate, recurse
