@@ -21,17 +21,25 @@ main = do
   let part2 = solve2 grid
   putStrLn $ "Part 2: " ++ show part2
 
+isRollChar :: Char -> Bool
+isRollChar = (== '@') -- true if character is @
+
 solve1 :: [String] -> Int
-solve1 input = length accessibleRolls
-  where
-    rolls = locateRolls input
-    accessibleRolls = filter (< 4) $ map (`countNeighbors` rolls) (Set.toList rolls)
+solve1 input = Set.size . removableRolls $ locateRolls input
 
+-- | Similar to part1, but iteratively refine until we can't remove any more
+-- | doStep computes set of removable rolls, then recurses with the updated total & rolls-state
 solve2 :: [String] -> Int
-solve2 _ = 0
+solve2 input = doStep 0 (locateRolls input)
+  where
+    doStep totalRemoved rolls
+      | Set.null (removableRolls rolls) = totalRemoved -- can't remove any more, return total
+      | otherwise = doStep newTotal remainingRolls -- update and recurse
+      where
+        newTotal = totalRemoved + Set.size (removableRolls rolls)
+        remainingRolls = Set.difference rolls (removableRolls rolls)
 
--- | locateRolls returns position-tuples, for every place a roll
--- | appears in the puzzle input (0 indexed positions)
+-- | locateRolls takes string-input lines, and returns position-tuples for every roll
 -- | List-comp generates all (x,y) pairs that meet `isRollChar char` predicate
 locateRolls :: [String] -> Set.Set (Int, Int)
 locateRolls input =
@@ -42,8 +50,8 @@ locateRolls input =
         isRollChar char
     ]
 
--- | countNeighbors takes a a position, and the collection of rolls,
--- | and returns the number of neighboring rolls
+-- | countNeighbors takes a pos and set of rolls, and returns the count
+-- | List-comp generates adjacent positions, predicated on the position having a roll
 countNeighbors :: (Int, Int) -> Set.Set (Int, Int) -> Int
 countNeighbors (x, y) rolls =
   length
@@ -51,9 +59,15 @@ countNeighbors (x, y) rolls =
       | x' <- [x - 1 .. x + 1],
         y' <- [y - 1 .. y + 1],
         (x', y') /= (x, y),
-        Set.member (x', y') rolls
+        Set.member (x', y') rolls -- in-case neighbor position is off the board e.g. (-1,-1)
     ]
 
-isRollChar :: Char -> Bool
-isRollChar '@' = True
-isRollChar _ = False
+-- | isRemovable checks if a roll has <4 neighbors
+isRemovable :: Set.Set (Int, Int) -> (Int, Int) -> Bool
+isRemovable rolls pos = countNeighbors pos rolls < 4
+
+-- | removableRolls returns all rolls that can immediately be removed
+-- | Set.filter checks each roll against the (isRemovable rolls) predicate
+-- | (isRemovable rolls) is partial application to include the overall board state
+removableRolls :: Set.Set (Int, Int) -> Set.Set (Int, Int)
+removableRolls rolls = Set.filter (isRemovable rolls) rolls
