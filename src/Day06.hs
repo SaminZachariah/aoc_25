@@ -28,6 +28,11 @@ instance Show Operator where
   show Multiply = "*"
   show Add = "+"
 
+charToOp :: String -> Operator
+charToOp "*" = Multiply
+charToOp "+" = Add
+charToOp _ = error "unexpected operator character"
+
 type Problem = (Operator, [Int])
 
 solveProblem :: Problem -> Int
@@ -39,20 +44,14 @@ parseInputP1 s = map parseProblem transposedInput
   where
     transposedInput = map reverse . transpose . map words . lines $ s
     parseProblem [] = error "empty problem"
-    parseProblem (op : vs)
-      | op == "*" = (Multiply, map read vs)
-      | op == "+" = (Add, map read vs)
-      | otherwise = error "unexpected problem input"
+    parseProblem (op : vs) = (charToOp op, map read vs)
 
-solve1 :: String -> Int
-solve1 = sum . map solveProblem . parseInputP1
-
--- parseInputP2 :: String -> [Problem]
--- parseInputP2 s = map parseProblem transformedInput
---   where
---     inputLines = lines s -- split to lines
---     ops = last inputLines
---     nums = tail inputLines
+parseInputP2 :: String -> [Problem]
+parseInputP2 s = zip ops nums
+  where
+    inputLines = lines s
+    ops = map charToOp . words . last $ inputLines
+    nums = map (map read) . splitByColumns . transpose . init $ inputLines
 
 -- | Splits input list at **all** elements that are only whitespace
 splitByColumns :: [String] -> [[String]]
@@ -60,19 +59,8 @@ splitByColumns xs = case break (all isSpace) xs of
   (chunk, []) -> [chunk] -- end of list
   (chunk, _ : rest) -> chunk : splitByColumns rest
 
-charToOp :: String -> Operator
-charToOp "*" = Multiply
-charToOp "+" = Add
-charToOp _ = error "unexpected operator character"
+solve1 :: String -> Int
+solve1 = sum . map solveProblem . parseInputP1
 
 solve2 :: String -> Int
-solve2 s =
-  let inputLines = reverse . lines $ s
-      ops = map charToOp . words . head $ inputLines
-      nums = (map . map) read . splitByColumns . transpose . reverse . tail $ inputLines :: [[Int]]
-      zippedOpsNums = zip ops nums
-   in -- ops = head transposedInput
-      -- nums = tail transposedInput
-      sum . map solveProblem $ zippedOpsNums
-
--- inputLines
+solve2 = sum . map solveProblem . parseInputP2
