@@ -1,6 +1,7 @@
 module Main where
 
 import AoCUtils
+import Data.List (foldl')
 import System.Environment (getArgs)
 
 main :: IO ()
@@ -46,9 +47,42 @@ isFresh rs ing = any (inRange ing) rs
     inRange i (s, e) = s <= i && i <= e
 
 solve1 :: Database -> Int
-solve1 (ranges, ingredients) = length available
-  where
-    available = filter id $ map (isFresh ranges) ingredients
+solve1 (ranges, ingredients) = length $ filter (isFresh ranges) ingredients
+
+-- Part 2 Solution Overview:
+-- Build a list of **disjoint** intervals, starting from an empty list
+-- For each interval in input, merge it in while preserving disjointedness
+
+-- | Helper to check if 2 intervals overlap
+isOverlap :: IDRange -> IDRange -> Bool
+isOverlap (s', e') (s, e)
+  | e' < s = False -- I' ends before I starts
+  | s' > e = False -- I' starts after I ends
+  | otherwise = True -- Some kind of overlap, but we don't care about how
+
+-- | Assumes that intervals are KNOWN to overlap
+mergeTwo :: IDRange -> IDRange -> IDRange
+mergeTwo (s', e') (s, e) = (min s' s, max e' e)
+
+-- | Recursively merge a new interval I' with existing intervals
+-- | Compare I' to the first existing interval I
+-- | If no more intervals to check, i' is disjoint, so simply add it in
+-- | If no overlap, keep I as-is, continue scanning with I'
+-- | If overlap, merge I I', continue scan with newly merged interval
+mergeInsert :: [IDRange] -> IDRange -> [IDRange]
+mergeInsert [] i' = [i'] -- base case: no existing intervals to check
+mergeInsert (i : is) i'
+  | not (isOverlap i i') = i : mergeInsert is i' -- keep I intact, recurse
+  | otherwise = mergeInsert is (mergeTwo i i') -- merge I I', recurse
+
+-- | Reduce overlapping intervals to disjoint intervals
+-- | Begin with empty list as accumulator to return
+-- | Scan over each input interval and merge into accumulator
+-- | point-free on input-intervals
+insertAll :: [IDRange] -> [IDRange]
+insertAll = foldl' mergeInsert []
 
 solve2 :: Database -> Int
-solve2 _ = 0
+solve2 (rs, _) = sum . map countIDs $ insertAll rs
+  where
+    countIDs (s, e) = e - s + 1 -- tally IDs in ONE interval
