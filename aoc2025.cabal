@@ -37,6 +37,12 @@ executable day04
   hs-source-dirs: src
   build-depends: aoc2025
 
+executable day05
+  import: shared-properties
+  main-is: Day05.hs
+  hs-source-dirs: src
+  build-depends: aoc2025
+
 library
   import: shared-properties
   exposed-modules: AoCUtils
