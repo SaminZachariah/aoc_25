@@ -1,6 +1,7 @@
 module Main where
 
 import AoCUtils
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import System.Environment (getArgs)
 
@@ -76,8 +77,30 @@ quantumSplit (b, s : ss)
   | Set.notMember b s = quantumSplit (b, ss) -- no splitter, push forward
   | otherwise = quantumSplit (b - 1, ss) + quantumSplit (b + 1, ss) -- go left and right
 
+-- | Memoized implementation of quantumSplit to address exponential time complexity
+-- | naive implementation made 2 calls at each splitter, so O(2^n) for n rows (n=140).
+-- | memoized implementation is O(n^2), since we could compute pathCount for every point in grid
+type MemoTable = Map.Map (Int, [SplitPos]) Int -- (beam-pos, splitter-list) to pathCount
+
+quantumSplitMemo :: MemoTable -> (Int, [SplitPos]) -> (MemoTable, Int)
+quantumSplitMemo memtab (_, []) = (memtab, 1) -- base case
+quantumSplitMemo memtab (b, s : ss) =
+  case Map.lookup (b, ss) memtab of
+    Just pathCount -> (memtab, pathCount) -- Cache hit, return precomputed result
+    Nothing ->
+      -- Cache miss, recurse and update memo table
+      let (memtab', count')
+            | Set.notMember b s = quantumSplitMemo memtab (b, ss)
+            | otherwise =
+                let (mem1, lcount) = quantumSplitMemo memtab (b - 1, ss) -- use input memtab
+                    (mem2, rcount) = quantumSplitMemo mem1 (b + 1, ss) -- use fresh memtab (mem1)
+                 in (mem2, lcount + rcount) -- return fresher memtab (mem2) and total count
+       in (Map.insert (b, ss) count' memtab', count') -- Return update
+
+-- | Use snd to get final count and ignore memoTable
 solve2 :: String -> Int
-solve2 input = quantumSplit (initBeam, splitters)
+solve2 input = finalCount
   where
     (beamSet, splitters) = parseInput input
     initBeam = Set.elemAt 0 beamSet
+    (_, finalCount) = quantumSplitMemo Map.empty (initBeam, splitters)
