@@ -39,30 +39,24 @@ parseInput s = (Set.fromList beam, map Set.fromList splitters)
 splitOneBeam :: Int -> BeamPos
 splitOneBeam pos = Set.fromList [pos - 1, pos + 1]
 
--- compute split-count and new beams given beams and next-splitters
+-- compute new split-count and new beams given current-beams and next-splitters
 -- e.g. beams on row 2, splitters on row 3, produce beams' on row3
-stepOnce :: (BeamPos, SplitPos) -> (BeamPos, Int)
-stepOnce (b, ss) = (Set.union unsplitBeams splitBeams, Set.size beamsToSplit)
+stepOnce :: (BeamPos, Int) -> SplitPos -> (BeamPos, Int)
+stepOnce (b, c) splits = (b', c')
   where
-    unsplitBeams = Set.difference b ss
-    beamsToSplit = Set.intersection b ss
-    splitBeams = Set.unions $ Set.map splitOneBeam beamsToSplit
+    unsplitBeams = Set.difference b splits -- beams that are not directly above a splitter
+    beamsToSplit = Set.intersection b splits -- beams directly above a splitter
+    splitBeams = Set.unions . Set.map splitOneBeam $ beamsToSplit -- union result of all splits
+    b' = Set.union unsplitBeams splitBeams
+    c' = c + Set.size beamsToSplit -- count beams
 
--- repeatedly call stepOnce and accumulate (BeamPos, Count)
--- if splitters is empty, we've reach the end, so return
--- otherwise, call stepOnce to get new beams, and update count
-stepAll :: (BeamPos, Int) -> [SplitPos] -> (BeamPos, Int)
-stepAll (bpos, c) splitters = case splitters of
-  [] -> (bpos, c)
-  s : ss ->
-    let (bpos', cToAdd) = stepOnce (bpos, s)
-     in stepAll (bpos', c + cToAdd) ss
-
+-- foldl over rows of splitters, applying stepOnce each time, accumulating
+-- new-beam positions and total count
 solve1 :: String -> Int
 solve1 input = splitCount
   where
     (startBeam, splitters) = parseInput input
-    (_, splitCount) = stepAll (startBeam, 0) splitters
+    (_, splitCount) = foldl stepOnce (startBeam, 0) splitters
 
 solve2 :: String -> Int
 solve2 _ = 0
