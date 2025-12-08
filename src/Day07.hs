@@ -80,6 +80,10 @@ quantumSplit (b, s : ss)
 -- | Memoized implementation of quantumSplit to address exponential time complexity
 -- | naive implementation made 2 calls at each splitter, so O(2^n) for n rows (n=140).
 -- | memoized implementation is O(n^2), since we could compute pathCount for every point in grid
+
+-- | The memo-table would be more efficient if it were (Int, Int) to Int, using beam-pos row-idx
+-- | but using (beam-pos, list-of-remaining-splitters) explicitly matches naive strategy
+-- | and helps mentally distinguish memoization logic from puzzle-logic
 type MemoTable = Map.Map (Int, [SplitPos]) Int -- (beam-pos, splitter-list) to pathCount
 
 quantumSplitMemo :: MemoTable -> (Int, [SplitPos]) -> (MemoTable, Int)
@@ -87,17 +91,16 @@ quantumSplitMemo memtab (_, []) = (memtab, 1) -- base case
 quantumSplitMemo memtab (b, s : ss) =
   case Map.lookup (b, ss) memtab of
     Just pathCount -> (memtab, pathCount) -- Cache hit, return precomputed result
-    Nothing ->
-      -- Cache miss, recurse and update memo table
-      let (memtab', count')
-            | Set.notMember b s = quantumSplitMemo memtab (b, ss)
-            | otherwise =
-                let (mem1, lcount) = quantumSplitMemo memtab (b - 1, ss) -- use input memtab
-                    (mem2, rcount) = quantumSplitMemo mem1 (b + 1, ss) -- use fresh memtab (mem1)
-                 in (mem2, lcount + rcount) -- return fresher memtab (mem2) and total count
-       in (Map.insert (b, ss) count' memtab', count') -- Return update
+    Nothing -> (newMemTab, count') -- Cache miss, updated memo-table and count from recursion
+      where
+        newMemTab = Map.insert (b, ss) count' memtab' -- Update the memo table
+        (memtab', count') -- Actual result from recursive call
+          | Set.notMember b s = quantumSplitMemo memtab (b, ss) -- no split, push forward
+          | otherwise = (mem2, lcount + rcount) -- sum sub-problem results
+          where
+            (mem1, lcount) = quantumSplitMemo memtab (b - 1, ss) -- use input memo table
+            (mem2, rcount) = quantumSplitMemo mem1 (b + 1, ss) -- use newer mem1 table
 
--- | Use snd to get final count and ignore memoTable
 solve2 :: String -> Int
 solve2 input = finalCount
   where
