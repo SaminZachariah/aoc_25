@@ -58,5 +58,26 @@ solve1 input = splitCount
     (startBeam, splitters) = parseInput input
     (_, splitCount) = foldl stepOnce (startBeam, 0) splitters
 
+-- for part2, instead of counting the number of splits as we push all beams forward one row,
+-- we use the 'quantum' interpretation and count the number of *timelines* which is
+-- equivalent to the number of possible paths where a split either goes left, or it goes right.
+-- seems like a good case for recursion?
+
+-- Instead of tracking a set of beams, we follow one beam (still one step at a time)
+-- If the beam reached the end, return 1 (since we found one end-to-end path)
+-- If there is no splitter in front of the beam, move it forward, but leave pathcount the same
+-- If there is a splitter, make 2 recursive calls to consider the left and right timeline,
+-- and return the sum of the left-option-path-count + right-option-path-count
+
+-- | Takes (beam-pos, rows of splitters), returns path-count
+quantumSplit :: (Int, [SplitPos]) -> Int
+quantumSplit (_, []) = 1 -- Base case, we found a path
+quantumSplit (b, s : ss)
+  | Set.notMember b s = quantumSplit (b, ss) -- no splitter, push forward
+  | otherwise = quantumSplit (b - 1, ss) + quantumSplit (b + 1, ss) -- go left and right
+
 solve2 :: String -> Int
-solve2 _ = 0
+solve2 input = quantumSplit (initBeam, splitters)
+  where
+    (beamSet, splitters) = parseInput input
+    initBeam = Set.elemAt 0 beamSet
